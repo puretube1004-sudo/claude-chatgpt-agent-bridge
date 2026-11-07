@@ -90,18 +90,8 @@ test("broker cancellation aborts a running task", async () => {
 });
 
 test("broker rejects delegation to a disabled worker without creating a task", async () => {
-  const config = await testConfig({
-    agents: {
-      ...(await testConfig()).agents,
-      claude: {
-        adapter: "mock",
-        command: "claude",
-        enabled: false,
-        timeoutMs: 1_000,
-        maxTurns: 3
-      }
-    }
-  });
+  const config = await testConfig();
+  config.agents.claude.enabled = false;
   const store = new TaskStore(join(config.dataDirectory, "tasks.json"));
   const broker = new AgentBridgeBroker(config, store, {
     claude: new MockAdapter("claude"),
