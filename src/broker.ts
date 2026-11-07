@@ -29,8 +29,9 @@ export class AgentBridgeBroker {
     await this.store.initialize();
     await this.store.recoverInterrupted();
     await this.store.enforceRetention(this.config.retention);
-    this.schedule("claude");
-    this.schedule("codex");
+    for (const agent of Object.keys(this.adapters) as AgentName[]) {
+      if (this.config.agents[agent].enabled) this.schedule(agent);
+    }
   }
 
   public async capabilities(): Promise<Record<string, unknown>> {
@@ -79,6 +80,9 @@ export class AgentBridgeBroker {
     }
     if (input.sourceAgent === input.targetAgent) {
       throw new Error("sourceAgent and targetAgent must differ for cross-vendor delegation");
+    }
+    if (!this.config.agents[input.targetAgent].enabled) {
+      throw new Error(`${input.targetAgent} worker is disabled in configuration`);
     }
     const availability = await this.adapters[input.targetAgent].isAvailable();
     if (!availability.installed) {
@@ -154,7 +158,7 @@ export class AgentBridgeBroker {
   }
 
   private schedule(agent: AgentName): void {
-    if (this.active.has(agent)) return;
+    if (!this.config.agents[agent].enabled || this.active.has(agent)) return;
     const run = this.runQueue(agent).finally(() => {
       this.active.delete(agent);
     });
@@ -171,6 +175,7 @@ export class AgentBridgeBroker {
   }
 
   private async execute(queued: BridgeTask): Promise<void> {
+    if (!this.config.agents[queued.targetAgent].enabled) return;
     const controller = new AbortController();
     this.abortControllers.set(queued.id, controller);
     const started = await this.store.update(queued.id, (task) => {
