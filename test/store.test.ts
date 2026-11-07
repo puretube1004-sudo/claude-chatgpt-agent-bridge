@@ -40,7 +40,7 @@ test("TaskStore persists, filters, and updates tasks", async () => {
   assert.equal((await store.get("first"))?.status, "running");
 });
 
-test("TaskStore requeues interrupted running tasks", async () => {
+test("TaskStore fails interrupted running tasks without automatically retrying", async () => {
   const config = await testConfig();
   const store = new TaskStore(join(config.dataDirectory, "tasks.json"));
   await store.initialize();
@@ -48,8 +48,9 @@ test("TaskStore requeues interrupted running tasks", async () => {
 
   assert.equal(await store.recoverInterrupted(), 1);
   const recovered = await store.get("running");
-  assert.equal(recovered?.status, "queued");
-  assert.match(recovered?.error ?? "", /Recovered/);
+  assert.equal(recovered?.status, "failed");
+  assert.match(recovered?.error ?? "", /Automatic retry was skipped/);
+  assert.ok(recovered?.completedAt);
 });
 
 test("enforceRetention prunes terminal tasks beyond the count cap, keeping non-terminal", async () => {
