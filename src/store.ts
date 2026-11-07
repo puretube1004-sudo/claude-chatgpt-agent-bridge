@@ -84,10 +84,10 @@ export class TaskStore {
       let recovered = 0;
       for (const task of data.tasks) {
         if (task.status === "running") {
-          task.status = "queued";
-          task.error = "Recovered after the bridge stopped during execution.";
-          task.updatedAt = new Date().toISOString();
-          delete task.startedAt;
+          task.status = "failed";
+          task.error = "Execution was interrupted when the bridge stopped. Automatic retry was skipped to prevent duplicate side effects.";
+          task.completedAt = new Date().toISOString();
+          task.updatedAt = task.completedAt;
           recovered += 1;
         }
       }
