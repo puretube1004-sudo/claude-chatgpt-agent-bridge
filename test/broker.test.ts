@@ -89,6 +89,35 @@ test("broker cancellation aborts a running task", async () => {
   assert.equal((await broker.get(delegated.id))?.status, "cancelled");
 });
 
+test("broker rejects delegation to a disabled worker without creating a task", async () => {
+  const config = await testConfig({
+    agents: {
+      ...(await testConfig()).agents,
+      claude: {
+        adapter: "mock",
+        command: "claude",
+        enabled: false,
+        timeoutMs: 1_000,
+        maxTurns: 3
+      }
+    }
+  });
+  const store = new TaskStore(join(config.dataDirectory, "tasks.json"));
+  const broker = new AgentBridgeBroker(config, store, {
+    claude: new MockAdapter("claude"),
+    codex: new MockAdapter("codex")
+  });
+  await broker.initialize();
+
+  await assert.rejects(() => broker.delegate({
+    targetAgent: "claude",
+    sourceAgent: "codex",
+    task: "must not run"
+  }), /worker is disabled in configuration/);
+  assert.equal((await broker.list({ targetAgent: "claude" })).length, 0);
+  await broker.waitForIdle();
+});
+
 test("broker rejects an unknown workspace", async () => {
   const config = await testConfig();
   const store = new TaskStore(join(config.dataDirectory, "tasks.json"));
